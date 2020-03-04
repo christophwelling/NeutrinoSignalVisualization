@@ -11,6 +11,7 @@ import NuRadioReco.detector.antennapattern
 import NuRadioReco.detector.ARIANNA.analog_components
 import NuRadioReco.detector.RNO_G.analog_components
 from app import app
+import scipy.signal
 
 antennapattern_provider = NuRadioReco.detector.antennapattern.AntennaPatternProvider()
 
@@ -87,6 +88,30 @@ layout = html.Div([
                         value=None,
                         multi=False
                     )
+                ], className='input-group'),
+                html.Div([
+                    dcc.Checklist(
+                        id='filter-toggle-checklist',
+                        options=[
+                            {'label': 'Filter', 'value': 'filter'}
+                        ],
+                        value=[]
+                    ),
+                    dcc.RangeSlider(
+                        id='filter-band-range-slider',
+                        min=0,
+                        max=.5,
+                        step=.01,
+                        value=[0,.5],
+                        marks={
+                            0: '0MHz',
+                            .1: '100MHz',
+                            .2: '200MHz',
+                            .3: '300MHz',
+                            .4: '400MHz',
+                            .5: '500MHz'
+                        }
+                    )
                 ], className='input-group')
             ], className='panel-body')
         ], className='panel panel-default')
@@ -107,14 +132,18 @@ layout = html.Div([
     Input('antenna-type-radio-items', 'value'),
     Input('signal-zenith-slider', 'value'),
     Input('signal-azimuth-slider', 'value'),
-    Input('amplifier-type-dropdown', 'value')]
+    Input('amplifier-type-dropdown', 'value'),
+    Input('filter-toggle-checklist', 'value'),
+    Input('filter-band-range-slider', 'value')]
 )
 def update_voltage_plot(
     electric_field,
     antenna_type,
     signal_zenith,
     signal_azimuth,
-    amplifier_type
+    amplifier_type,
+    filter_toggle,
+    filter_band
 ):
     samples = 512
     sampling_rate = 1.*units.GHz
@@ -145,6 +174,11 @@ def update_voltage_plot(
             amp_response = NuRadioReco.detector.ARIANNA.analog_components.load_amplifier_response(amplifier_type)
             amplifier_response = amp_response['gain'](freqs) * amp_response['phase'](freqs)
         channel_spectrum = channel_spectrum * amplifier_response
+    if 'filter' in filter_toggle:
+        mask = freqs > 0
+        b, a = scipy.signal.butter(10, filter_band, 'bandpass', analog=True)
+        w, h = scipy.signal.freqs(b, a, freqs[mask])
+        channel_spectrum[mask] = channel_spectrum[mask] * np.abs(h)
     channel_trace = fft.freq2time(channel_spectrum, sampling_rate)
     fig = plotly.subplots.make_subplots(rows=1, cols=2,
         shared_xaxes=False, shared_yaxes=False,
