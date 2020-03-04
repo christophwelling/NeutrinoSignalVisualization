@@ -2,12 +2,14 @@ from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
 import dash
+import json
 import plotly.subplots
 import plotly.graph_objs as go
 import numpy as np
 from NuRadioReco.utilities import units, fft
 import NuRadioMC.utilities.attenuation
 import NuRadioMC.SignalGen.askaryan
+import voltage_trace
 from app import app
 
 app.title = 'Radio Signal Simulator'
@@ -15,140 +17,145 @@ app.title = 'Radio Signal Simulator'
 app.layout = html.Div([
     html.Div([
         html.Div([
-            html.Div('Neutrino Settings', className='panel-heading'),
             html.Div([
+                html.Div('Neutrino Settings', className='panel-heading'),
                 html.Div([
-                    html.Div('Energy'),
-                    dcc.Slider(
-                        id='energy-slider',
-                        min=16,
-                        max=20,
-                        step=.25,
-                        value=18,
-                        marks={
-                            16: '10PeV',
-                            17: '100PeV',
-                            18: '1EeV',
-                            19: '10EeV',
-                            20: '100EeV'
-                        }
-                    )
-                ], className='input-group'),
-                html.Div([
-                    html.Div('Viewing angle'),
-                    dcc.Slider(
-                        id='viewing-angle-slider',
-                        min=-10,
-                        max=10,
-                        step=1,
-                        value=2,
-                        marks={
-                            -10: '-10°',
-                            -5: '-5°',
-                            -2: '-2°',
-                            0: '0°',
-                            2: '2°',
-                            5: '5°',
-                            10: '10°'
-                        }
-                    )
-                ], className='input-group'),
-                html.Div([
-                    html.Div('Polarization Angle'),
-                    dcc.Slider(
-                        id='polarization-angle-slider',
-                        min=-180,
-                        max=180,
-                        step=5,
-                        value=0,
-                        marks={
-                            -180: '-180°',
-                            -90: '-90°',
-                            -45: '-45°',
-                            0: '0°',
-                            45: '45°',
-                            90: '90°',
-                            180: '180°'
-                        }
-                    )
-                ], className='input-group'),
-                html.Div([
-                    html.Div('Shower Type'),
-                    dcc.RadioItems(
-                        id='shower-type-radio-items',
-                        options=[
-                            {'label': 'Hadronic', 'value': 'HAD'},
-                            {'label': 'Electro-Magnetic', 'value': 'EM'}
-                        ],
-                        value='HAD',
-                        labelStyle={'padding':'0 5px'}
-                    )
-                ], className='input-group'),
-                html.Div([
-                    html.Div('Shower Model'),
-                    dcc.Dropdown(
-                        id='shower-model-dropdown',
-                        options=[
-                            {'label': 'ARZ2020', 'value': 'ARZ2020'},
-                            {'label': 'ARZ2019', 'value': 'ARZ2019'},
-                            {'label': 'Alvarez2009', 'value': 'Alvarez2009'},
-                            {'label': 'Alvarez2000', 'value': 'Alvarez2000'},
-                            {'label': 'ZHS1992', 'value': 'ZHS1992'}
-                        ],
-                        multi=False,
-                        value='ARZ2020'
-                    )
-                ], className='input-group')
-            ], className='panel-body')
-        ], className='panel panel-default'),
-        html.Div([
-            html.Div('Propagation', className='panel-heading'),
+                    html.Div([
+                        html.Div('Energy'),
+                        dcc.Slider(
+                            id='energy-slider',
+                            min=16,
+                            max=20,
+                            step=.25,
+                            value=18,
+                            marks={
+                                16: '10PeV',
+                                17: '100PeV',
+                                18: '1EeV',
+                                19: '10EeV',
+                                20: '100EeV'
+                            }
+                        )
+                    ], className='input-group'),
+                    html.Div([
+                        html.Div('Viewing angle'),
+                        dcc.Slider(
+                            id='viewing-angle-slider',
+                            min=-10,
+                            max=10,
+                            step=1,
+                            value=2,
+                            marks={
+                                -10: '-10°',
+                                -5: '-5°',
+                                -2: '-2°',
+                                0: '0°',
+                                2: '2°',
+                                5: '5°',
+                                10: '10°'
+                            }
+                        )
+                    ], className='input-group'),
+                    html.Div([
+                        html.Div('Polarization Angle'),
+                        dcc.Slider(
+                            id='polarization-angle-slider',
+                            min=-180,
+                            max=180,
+                            step=5,
+                            value=0,
+                            marks={
+                                -180: '-180°',
+                                -90: '-90°',
+                                -45: '-45°',
+                                0: '0°',
+                                45: '45°',
+                                90: '90°',
+                                180: '180°'
+                            }
+                        )
+                    ], className='input-group'),
+                    html.Div([
+                        html.Div('Shower Type'),
+                        dcc.RadioItems(
+                            id='shower-type-radio-items',
+                            options=[
+                                {'label': 'Hadronic', 'value': 'HAD'},
+                                {'label': 'Electro-Magnetic', 'value': 'EM'}
+                            ],
+                            value='HAD',
+                            labelStyle={'padding':'0 5px'}
+                        )
+                    ], className='input-group'),
+                    html.Div([
+                        html.Div('Shower Model'),
+                        dcc.Dropdown(
+                            id='shower-model-dropdown',
+                            options=[
+                                {'label': 'ARZ2020', 'value': 'ARZ2020'},
+                                {'label': 'ARZ2019', 'value': 'ARZ2019'},
+                                {'label': 'Alvarez2009', 'value': 'Alvarez2009'},
+                                {'label': 'Alvarez2000', 'value': 'Alvarez2000'},
+                                {'label': 'ZHS1992', 'value': 'ZHS1992'}
+                            ],
+                            multi=False,
+                            value='ARZ2020'
+                        )
+                    ], className='input-group')
+                ], className='panel-body')
+            ], className='panel panel-default'),
             html.Div([
+                html.Div('Propagation', className='panel-heading'),
                 html.Div([
-                    html.Div('Propagation Length'),
-                    dcc.Slider(
-                        id='propagation-length-slider',
-                        min=0,
-                        max=5,
-                        step=.1,
-                        value=0,
-                        marks={
-                            0: '0',
-                            1: '1km',
-                            2: '2km',
-                            3: '3km',
-                            4: '4km',
-                            5: '5km'
-                        }
-                    )
-                ], className='input-group'),
-                html.Div([
-                    html.Div('Attenuation Model'),
-                    dcc.RadioItems(
-                        id='attenuation-model-radio-items',
-                        options=[
-                            {'label': 'Greenland', 'value': 'GL1'},
-                            {'label': 'South Pole', 'value': 'SP1'},
-                            {'label': 'Moore´s Bay', 'value': 'MB1'}
-                        ],
-                        value='GL1',
-                        labelStyle={'padding': '0 5px'}
-                    )
-                ], className='input-group')
-            ], className='panel-body')
-        ], className='panel panel-default')
-    ], style={'flex':'1'}),
-    html.Div([
-        html.Div('Electric Field', className='panel-heading'),
+                    html.Div([
+                        html.Div('Propagation Length'),
+                        dcc.Slider(
+                            id='propagation-length-slider',
+                            min=0,
+                            max=5,
+                            step=.1,
+                            value=0,
+                            marks={
+                                0: '0',
+                                1: '1km',
+                                2: '2km',
+                                3: '3km',
+                                4: '4km',
+                                5: '5km'
+                            }
+                        )
+                    ], className='input-group'),
+                    html.Div([
+                        html.Div('Attenuation Model'),
+                        dcc.RadioItems(
+                            id='attenuation-model-radio-items',
+                            options=[
+                                {'label': 'Greenland', 'value': 'GL1'},
+                                {'label': 'South Pole', 'value': 'SP1'},
+                                {'label': 'Moore´s Bay', 'value': 'MB1'}
+                            ],
+                            value='GL1',
+                            labelStyle={'padding': '0 5px'}
+                        )
+                    ], className='input-group')
+                ], className='panel-body')
+            ], className='panel panel-default')
+        ], style={'flex':'1'}),
         html.Div([
-            dcc.Graph(id='electric-field-plot')
-        ], className='panel-body')
-    ], className='panel panel-default', style={'flex':'4'})
-], style={'display': 'flex'})
+            html.Div('Electric Field', className='panel-heading'),
+            html.Div([
+                dcc.Graph(id='electric-field-plot')
+            ], className='panel-body')
+        ], className='panel panel-default', style={'flex':'4'})
+    ], style={'display': 'flex'}),
+    html.Div(id='efield-trace-storage', children=json.dumps(None), style={'display': 'none'}),
+    voltage_trace.layout
+])
 
 
 @app.callback(
-    Output('electric-field-plot', 'figure'),
+    [Output('electric-field-plot', 'figure'),
+    Output('efield-trace-storage', 'children')],
     [Input('energy-slider', 'value'),
     Input('viewing-angle-slider', 'value'),
     Input('shower-type-radio-items', 'value'),
@@ -190,6 +197,8 @@ def update_electric_field_plot(
     if propagation_length > 0:
         attenuation_length = NuRadioMC.utilities.attenuation.get_attenuation_length(200., freqs, attenuation_model)
         efield_spectrum *= np.exp(-propagation_length/attenuation_length)
+    efield_spectrum_theta = efield_spectrum * np.cos(polarization_angle)
+    efield_spectrum_phi = efield_spectrum * np.sin(polarization_angle)
     efield_trace = fft.freq2time(efield_spectrum, sampling_rate)
     efield_trace_theta = efield_trace * np.cos(polarization_angle)
     efield_trace_phi = efield_trace * np.sin(polarization_angle)
@@ -210,18 +219,18 @@ def update_electric_field_plot(
     ),1,1)
     fig.append_trace(go.Scatter(
         x=freqs/units.MHz,
-        y=np.abs(fft.time2freq(efield_trace_theta, sampling_rate))/(units.mV/units.m/units.GHz),
+        y=np.abs(efield_spectrum_theta)/(units.mV/units.m/units.GHz),
         name='E_theta (f)'
     ),1,2)
     fig.append_trace(go.Scatter(
         x=freqs/units.MHz,
-        y=np.abs(fft.time2freq(efield_trace_phi, sampling_rate))/(units.mV/units.m/units.GHz),
+        y=np.abs(efield_spectrum_phi)/(units.mV/units.m/units.GHz),
         name='E_phi (f)'
     ),1,2)
     fig.update_xaxes(title_text='t [ns]', row=1, col=1)
     fig.update_xaxes(title_text='f [MHz]', row=1, col=2)
     fig.update_yaxes(title_text='E[mV/m]', row=1, col=1)
     fig.update_yaxes(title_text='E [mV/m/GHz]', row=1, col=2)
-    return fig
+    return fig, json.dumps({'theta':efield_trace_theta.tolist(), 'phi':efield_trace_phi.tolist()})
 
 app.run_server(debug=False, port=8080)
