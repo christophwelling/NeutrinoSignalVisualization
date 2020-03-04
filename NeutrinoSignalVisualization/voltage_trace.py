@@ -8,6 +8,8 @@ import numpy as np
 import json
 from NuRadioReco.utilities import units, fft
 import NuRadioReco.detector.antennapattern
+import NuRadioReco.detector.ARIANNA.analog_components
+import NuRadioReco.detector.RNO_G.analog_components
 from app import app
 
 antennapattern_provider = NuRadioReco.detector.antennapattern.AntennaPatternProvider()
@@ -19,7 +21,7 @@ layout = html.Div([
             html.Div([
                 html.Div([
                     html.Div('Antenna Type'),
-                    dcc.RadioItems(
+                    dcc.Dropdown(
                         id='antenna-type-radio-items',
                         options=[
                             {'label': 'Bicone', 'value': 'bicone_v8_InfFirn'},
@@ -28,7 +30,7 @@ layout = html.Div([
                             {'label': 'RNO H-pol', 'value': 'fourslot_InfFirn'}
                         ],
                         value='bicone_v8_InfFirn',
-                        labelStyle={'padding': '0 5px'}
+                        multi=False
                     )
                 ], className='input-group'),
                 html.Div([
@@ -66,6 +68,27 @@ layout = html.Div([
                     )
                 ], className='input-group')
             ], className='panel-body')
+        ], className='panel panel-default'),
+        html.Div([
+            html.Div('Amplifier', className='panel-heading'),
+            html.Div([
+                html.Div([
+                    html.Div('Amplifier'),
+                    dcc.Dropdown(
+                        id='amplifier-type-dropdown',
+                        options=[
+                            {'label': 'None', 'value': None},
+                            {'label': 'RNO-G, Iglu', 'value': 'iglu'},
+                            {'label': 'RNO-G, Surface', 'value': 'rno_surface'},
+                            {'label': 'ARIANNA-100', 'value': '100'},
+                            {'label': 'ARIANNA-200', 'value': '200'},
+                            {'label': 'ARIANNA-300', 'value': '300'}
+                        ],
+                        value=None,
+                        multi=False
+                    )
+                ], className='input-group')
+            ], className='panel-body')
         ], className='panel panel-default')
     ], style={'flex': '1'}),
     html.Div([
@@ -83,13 +106,15 @@ layout = html.Div([
     [Input('efield-trace-storage', 'children'),
     Input('antenna-type-radio-items', 'value'),
     Input('signal-zenith-slider', 'value'),
-    Input('signal-azimuth-slider', 'value')]
+    Input('signal-azimuth-slider', 'value'),
+    Input('amplifier-type-dropdown', 'value')]
 )
 def update_voltage_plot(
     electric_field,
     antenna_type,
     signal_zenith,
-    signal_azimuth
+    signal_azimuth,
+    amplifier_type
 ):
     samples = 512
     sampling_rate = 1.*units.GHz
@@ -112,6 +137,14 @@ def update_voltage_plot(
         0.
     )
     channel_spectrum = antenna_response['theta'] * fft.time2freq(electric_field['theta'], sampling_rate) + antenna_response['phi'] * fft.time2freq(electric_field['phi'], sampling_rate)
+    if amplifier_type is not None:
+        if amplifier_type == 'iglu' or amplifier_type == 'rno_surface':
+            amp_response = NuRadioReco.detector.RNO_G.analog_components.load_amp_response(amplifier_type)
+            amplifier_response = amp_response['gain'](freqs) * np.exp(1j * amp_response['phase'](freqs))
+        else:
+            amp_response = NuRadioReco.detector.ARIANNA.analog_components.load_amplifier_response(amplifier_type)
+            amplifier_response = amp_response['gain'](freqs) * amp_response['phase'](freqs)
+        channel_spectrum = channel_spectrum * amplifier_response
     channel_trace = fft.freq2time(channel_spectrum, sampling_rate)
     fig = plotly.subplots.make_subplots(rows=1, cols=2,
         shared_xaxes=False, shared_yaxes=False,
