@@ -15,7 +15,7 @@ antennapattern_provider = NuRadioReco.detector.antennapattern.AntennaPatternProv
 layout = html.Div([
     html.Div([
         html.Div([
-            html.Div('Detector Settings', className='panel-heading'),
+            html.Div('Antenna', className='panel-heading'),
             html.Div([
                 html.Div([
                     html.Div('Antenna Type'),
@@ -29,6 +29,40 @@ layout = html.Div([
                         ],
                         value='bicone_v8_InfFirn',
                         labelStyle={'padding': '0 5px'}
+                    )
+                ], className='input-group'),
+                html.Div([
+                    html.Div('Signal Zenith Angle'),
+                    dcc.Slider(
+                        id='signal-zenith-slider',
+                        min=0,
+                        max=180,
+                        step=5,
+                        value=90,
+                        marks={
+                            0: '0°',
+                            45: '45°',
+                            90: '90°',
+                            135: '135°',
+                            180: '180°'
+                        }
+                    )
+                ], className='input-group'),
+                html.Div([
+                    html.Div('Signal Azimuth'),
+                    dcc.Slider(
+                        id='signal-azimuth-slider',
+                        min=0,
+                        max=360,
+                        step=10,
+                        value=180,
+                        marks={
+                            0: '0°',
+                            90: '90°',
+                            180: '180°',
+                            270: '270°',
+                            360: '360°'
+                        }
                     )
                 ], className='input-group')
             ], className='panel-body')
@@ -47,9 +81,16 @@ layout = html.Div([
 @app.callback(
     Output('voltage-plots', 'figure'),
     [Input('efield-trace-storage', 'children'),
-    Input('antenna-type-radio-items', 'value')]
+    Input('antenna-type-radio-items', 'value'),
+    Input('signal-zenith-slider', 'value'),
+    Input('signal-azimuth-slider', 'value')]
 )
-def update_voltage_plot(electric_field, antenna_type):
+def update_voltage_plot(
+    electric_field,
+    antenna_type,
+    signal_zenith,
+    signal_azimuth
+):
     samples = 512
     sampling_rate = 1.*units.GHz
     electric_field = json.loads(electric_field)
@@ -58,10 +99,18 @@ def update_voltage_plot(electric_field, antenna_type):
     antenna_pattern = antennapattern_provider.load_antenna_pattern(antenna_type)
     freqs = np.fft.rfftfreq(samples, 1./sampling_rate)
     times = np.arange(samples) / sampling_rate
-    zenith = 0.*units.deg
-    azimuth = 90.
+    signal_zenith = signal_zenith * units.deg
+    signal_azimuth = signal_azimuth * units.deg
 
-    antenna_response =antenna_pattern.get_antenna_response_vectorized(freqs, zenith, azimuth, 90.*units.deg, 0., 0., 0.)
+    antenna_response =antenna_pattern.get_antenna_response_vectorized(
+        freqs,
+        signal_zenith,
+        signal_azimuth,
+        0.,
+        0.,
+        90.*units.deg,
+        0.
+    )
     channel_spectrum = antenna_response['theta'] * fft.time2freq(electric_field['theta'], sampling_rate) + antenna_response['phi'] * fft.time2freq(electric_field['phi'], sampling_rate)
     channel_trace = fft.freq2time(channel_spectrum, sampling_rate)
     fig = plotly.subplots.make_subplots(rows=1, cols=2,
@@ -77,4 +126,8 @@ def update_voltage_plot(electric_field, antenna_type):
         y=np.abs(channel_spectrum)/(units.mV/units.GHz),
         name='U (f)'
     ), 1, 2)
+    fig.update_xaxes(title_text='t [ns]', row=1, col=1)
+    fig.update_xaxes(title_text='f [MHz]', row=1, col=2)
+    fig.update_yaxes(title_text='U [mV]', row=1, col=1)
+    fig.update_yaxes(title_text='U [mV/GHz]', row=1, col=2)
     return fig
