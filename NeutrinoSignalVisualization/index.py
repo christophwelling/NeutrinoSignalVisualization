@@ -231,6 +231,6 @@ def update_electric_field_plot(
     fig.update_xaxes(title_text='f [MHz]', row=1, col=2)
     fig.update_yaxes(title_text='E[mV/m]', row=1, col=1)
     fig.update_yaxes(title_text='E [mV/m/GHz]', row=1, col=2)
-    return fig, json.dumps({'theta':efield_trace_theta.tolist(), 'phi':efield_trace_phi.tolist()})
+    return [fig, json.dumps({'theta':efield_trace_theta.tolist(), 'phi':efield_trace_phi.tolist()})]
 
 app.run_server(debug=False, port=8080)
