@@ -52,6 +52,25 @@ app.layout = html.Div([
                 )
             ], className='input-group'),
             html.Div([
+                html.Div('Polarization Angle'),
+                dcc.Slider(
+                    id='polarization-angle-slider',
+                    min=-180,
+                    max=180,
+                    step=5,
+                    value=0,
+                    marks={
+                        -180: '-180°',
+                        -90: '-90°',
+                        -45: '-45°',
+                        0: '0°',
+                        45: '45°',
+                        90: '90°',
+                        180: '180°'
+                    }
+                )
+            ], className='input-group'),
+            html.Div([
                 html.Div('Shower Type'),
                 dcc.RadioItems(
                     id='shower-type-radio-items',
@@ -95,11 +114,13 @@ app.layout = html.Div([
     [Input('energy-slider', 'value'),
     Input('viewing-angle-slider', 'value'),
     Input('shower-type-radio-items', 'value'),
+    Input('polarization-angle-slider', 'value'),
     Input('shower-model-dropdown', 'value')]
 )
-def update_electric_field_plot(log_energy, viewing_angle, shower_type, model):
+def update_electric_field_plot(log_energy, viewing_angle, shower_type, polarization_angle, model):
 
     viewing_angle = viewing_angle * units.deg
+    polarization_angle = polarization_angle * units.deg
     energy = np.power(10., log_energy)
     samples = 512
     sampling_rate = 1.*units.GHz
@@ -117,6 +138,8 @@ def update_electric_field_plot(log_energy, viewing_angle, shower_type, model):
         distance,
         model
     )
+    efield_trace_theta = efield_trace * np.cos(polarization_angle)
+    efield_trace_phi = efield_trace * np.sin(polarization_angle)
     times = np.arange(samples) / sampling_rate
     freqs = np.fft.rfftfreq(samples, 1./sampling_rate)
 
@@ -125,13 +148,28 @@ def update_electric_field_plot(log_energy, viewing_angle, shower_type, model):
         vertical_spacing=0.01, subplot_titles=['Time Trace', 'Spectrum'])
     fig.append_trace(go.Scatter(
         x=times/units.ns,
-        y=efield_trace/(units.mV/units.m)
+        y=efield_trace_theta/(units.mV/units.m),
+        name='E_theta (t)'
+    ),1,1)
+    fig.append_trace(go.Scatter(
+        x=times/units.ns,
+        y=efield_trace_phi/(units.mV/units.m),
+        name='E_phi (t)'
     ),1,1)
     fig.append_trace(go.Scatter(
         x=freqs/units.MHz,
-        y=np.abs(fft.time2freq(efield_trace, sampling_rate))/(units.mV/units.m/units.GHz)
+        y=np.abs(fft.time2freq(efield_trace_theta, sampling_rate))/(units.mV/units.m/units.GHz),
+        name='E_theta (f)'
     ),1,2)
-
+    fig.append_trace(go.Scatter(
+        x=freqs/units.MHz,
+        y=np.abs(fft.time2freq(efield_trace_phi, sampling_rate))/(units.mV/units.m/units.GHz),
+        name='E_phi (f)'
+    ),1,2)
+    fig.update_xaxes(title_text='t [ns]', row=1, col=1)
+    fig.update_xaxes(title_text='f [MHz]', row=1, col=2)
+    fig.update_yaxes(title_text='E[mV/m]', row=1, col=1)
+    fig.update_yaxes(title_text='E [mV/m/GHz]', row=1, col=2)
     return fig
 
 app.run_server(debug=False, port=8080)
