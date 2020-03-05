@@ -171,7 +171,7 @@ def update_voltage_plot(
     sampling_rate = 1.*units.GHz
     electric_field = json.loads(electric_field)
     if electric_field is None:
-        return {}
+        return {}, {}
     antenna_pattern = antennapattern_provider.load_antenna_pattern(antenna_type)
     freqs = np.fft.rfftfreq(samples, 1./sampling_rate)
     times = np.arange(samples) / sampling_rate
@@ -249,9 +249,10 @@ def update_voltage_plot(
 @app.callback(
     Output('signal-direction-plot', 'figure'),
     [Input('signal-zenith-slider', 'value'),
-    Input('signal-azimuth-slider', 'value')]
+    Input('signal-azimuth-slider', 'value'),
+    Input('antenna-type-radio-items', 'value')]
 )
-def update_signal_direction_plot(zenith, azimuth):
+def update_signal_direction_plot(zenith, azimuth, antenna_type):
     zenith = zenith * units.deg
     azimuth = azimuth * units.deg
     signal_direction = hp.spherical_to_cartesian(zenith, azimuth)
@@ -277,6 +278,48 @@ def update_signal_direction_plot(zenith, azimuth):
         mode='lines',
         name='Antenna Rotation'
     ))
+    if antenna_type == 'createLPDA_100MHz_InfFirn':
+        data.append(go.Mesh3d(
+            x = [0,0,0],
+            y = [-.25,0,.25],
+            z = [0,.75,0],
+            delaunayaxis='x',
+            opacity=.5,
+            color='black'
+            ))
+    else:
+        d_angle = 30
+        angles = np.arange(0, 360, d_angle) *units.deg
+        r = .05
+        cylinder_points = []
+        i = []
+        j = []
+        k = []
+        for i_angle, angle in enumerate(angles):
+            cylinder_points.append([r*np.cos(angle), r*np.sin(angle), -.5])
+            cylinder_points.append([r*np.cos(angle), r*np.sin(angle), .5])
+            cylinder_points.append([r*np.cos(angle+d_angle*units.deg), r*np.sin(angle+d_angle*units.deg), -.5])
+            cylinder_points.append([r*np.cos(angle), r*np.sin(angle), .5])
+            cylinder_points.append([r*np.cos(angle+d_angle*units.deg), r*np.sin(angle+d_angle*units.deg), -.5])
+            cylinder_points.append([r*np.cos(angle+d_angle*units.deg), r*np.sin(angle+d_angle*units.deg), .5])
+            i.append(6 * i_angle)
+            j.append(6 * i_angle+1)
+            k.append(6 * i_angle+2)
+            i.append(6 * i_angle+3)
+            j.append(6 * i_angle+4)
+            k.append(6 * i_angle+5)
+        cylinder_points = np.array(cylinder_points)
+        data.append(go.Mesh3d(
+            x = cylinder_points[:,0],
+            y = cylinder_points[:,1],
+            z = cylinder_points[:,2],
+            i = i,
+            j = j,
+            k = k,
+            color='black',
+            opacity=.5
+        ))
+
     fig = go.Figure(
         data=data
     )
