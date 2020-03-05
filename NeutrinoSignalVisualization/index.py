@@ -182,17 +182,30 @@ def update_electric_field_plot(
     ior = 1.78
     cherenkov_angle = np.arccos(1./ior)
     distance = 1.*units.km
-    efield_spectrum = NuRadioMC.SignalGen.askaryan.get_frequency_spectrum(
-        energy,
-        cherenkov_angle + viewing_angle,
-        samples,
-        1./sampling_rate,
-        shower_type,
-        ior,
-        distance,
-        model,
-        same_shower=True
-    )
+    try:
+        efield_spectrum = NuRadioMC.SignalGen.askaryan.get_frequency_spectrum(
+            energy,
+            cherenkov_angle + viewing_angle,
+            samples,
+            1./sampling_rate,
+            shower_type,
+            ior,
+            distance,
+            model,
+            same_shower=True
+        )
+    except:
+        efield_spectrum = NuRadioMC.SignalGen.askaryan.get_frequency_spectrum(
+            energy,
+            cherenkov_angle + viewing_angle,
+            samples,
+            1./sampling_rate,
+            shower_type,
+            ior,
+            distance,
+            model,
+            same_shower=False
+        )
     freqs = np.fft.rfftfreq(samples, 1./sampling_rate)
     if propagation_length > 0:
         attenuation_length = NuRadioMC.utilities.attenuation.get_attenuation_length(200., freqs, attenuation_model)
